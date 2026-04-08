@@ -3,8 +3,8 @@
 // dashboard.js  |  Assignment 5  |  Spring 2026
 // ============================================================
 //
-// 
-// 
+//
+//
 //
 // HOW THIS FILE IS ORGANISED
 // ─────────────────────────────────────────────────────────────
@@ -19,16 +19,16 @@
 //
 // COLOUR PALETTE — use these for your charts so they match the UI
 const COLORS = {
-  Organic:  "#4f86c6",
-  Paid:     "#f59e0b",
-  Social:   "#10b981",
-  Email:    "#8b5cf6",
+  Organic: "#4f86c6",
+  Paid: "#f59e0b",
+  Social: "#10b981",
+  Email: "#8b5cf6",
   Referral: "#ef4444",
 };
 
 // Keep chart instances here so we can update them later (STEP 4)
-let barChartInstance  = null;
-let pieChartInstance  = null;
+let barChartInstance = null;
+let pieChartInstance = null;
 let lineChartInstance = null;
 
 // The full dataset — filled when CSV loads
@@ -36,8 +36,6 @@ let allData = [];
 
 // Track which metric the bar chart is showing (used in STEP 4)
 let currentMetric = "sessions";
-
-
 
 // ============================================================
 // STEP 1: LOAD THE CSV FILE WITH PAPAPARSE
@@ -57,6 +55,7 @@ let currentMetric = "sessions";
 // ============================================================
 
 Papa.parse("data.csv", {
+  download: true,
   header: true,
   dynamicTyping: true,
   skipEmptyLines: true,
@@ -78,11 +77,11 @@ Papa.parse("data.csv", {
 
   error: function (err) {
     console.error("CSV load failed:", err);
-    alert("Could not load data.csv. Make sure you are running this through a local server (e.g. Live Server in VS Code), not by opening the file directly.");
-  }
+    alert(
+      "Could not load data.csv. Make sure you are running this through a local server (e.g. Live Server in VS Code), not by opening the file directly.",
+    );
+  },
 });
-
-
 
 // ============================================================
 // STEP 2: CALCULATE KPIs AND INJECT INTO HTML
@@ -108,24 +107,52 @@ Papa.parse("data.csv", {
 // ============================================================
 
 function renderKPIs(rows) {
-
   // --- Calculate totals and averages ---
   // TODO: replace null with your .reduce() expressions
 
-  const totalSessions    = null;
-  const totalRevenue     = null;
-  const avgBounceRate    = null;
-  const avgCVR           = null;
-  const totalPageviews   = null;
-  const totalNewVisitors = null;
+  const totals = rows.reduce(
+    (acc, row) => {
+      acc.totalSessions += row.sessions;
+      acc.totalRevenue += row.revenue;
+      acc.totalBounce += row.bounceRate;
+      acc.totalCVR += row.conversionRate;
+      acc.totalPageviews += row.pageviews;
+      acc.totalNewVisitors += row.newVisitors;
+      return acc;
+    },
+    {
+      totalSessions: 0,
+      totalRevenue: 0,
+      totalBounce: 0,
+      totalCVR: 0,
+      totalPageviews: 0,
+      totalNewVisitors: 0,
+    },
+  );
+
+  const totalSessions = totals.totalSessions;
+  const totalRevenue = totals.totalRevenue;
+  const avgBounceRate = totals.totalBounce / rows.length;
+  const avgCVR = totals.totalCVR / rows.length;
+  const totalPageviews = totals.totalPageviews;
+  const totalNewVisitors = totals.totalNewVisitors;
 
   // --- Inject into HTML ---
   // TODO: use document.getElementById("your-id").textContent = ...
   // Match the ids you added to index.html in TASK 2
 
+  document.getElementById("sessions").textContent =
+    totalSessions.toLocaleString();
+  document.getElementById("revenue").textContent =
+    "$" + totalRevenue.toLocaleString();
+  document.getElementById("bounce").textContent =
+    avgBounceRate.toFixed(1) + "%";
+  document.getElementById("conversion").textContent = avgCVR.toFixed(1) + "%";
+  document.getElementById("pageviews").textContent =
+    totalPageviews.toLocaleString();
+  document.getElementById("visitors").textContent =
+    totalNewVisitors.toLocaleString();
 }
-
-
 
 // ============================================================
 // STEP 3A: BAR CHART — Sessions or Revenue by Source
@@ -159,18 +186,74 @@ function renderKPIs(rows) {
 // ============================================================
 
 function drawBarChart(rows, metric) {
-
   // TODO: group data by source for the chosen metric
+  let groups = {};
+
+  rows.forEach((row) => {
+    if (!groups[row.source]) {
+      groups[row.source] = 0;
+    }
+
+    groups[row.source] += row[metric];
+  });
 
   // TODO: build labels, values, colors arrays
+  const labels = Object.keys(groups);
+  const values = labels.map((src) => groups[src]);
+  const colors = labels.map((src) => COLORS[src]);
 
   // TODO: destroy old chart if it exists
+  if (barChartInstance) {
+    barChartInstance.destroy();
+  }
 
   // TODO: create new Chart on canvas id="barChart"
-
+  barChartInstance = new Chart(document.getElementById("barChart"), {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: metric,
+          data: values,
+          backgroundColor: colors,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          display: false,
+        },
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              let value = context.raw;
+              if (metric === "revenue") {
+                return "$" + value.toLocaleString();
+              }
+              return value.toLocaleString();
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            color: "#94a3b8",
+          },
+        },
+        x: {
+          ticks: {
+            color: "#94a3b8",
+          },
+        },
+      },
+    },
+  });
 }
-
-
 
 // ============================================================
 // STEP 3B: PIE / DOUGHNUT CHART — Revenue share by source
@@ -190,12 +273,55 @@ function drawBarChart(rows, metric) {
 // ============================================================
 
 function drawPieChart(rows) {
-
   // TODO
+  let groups = {};
 
+  rows.forEach((row) => {
+    if (!groups[row.source]) {
+      groups[row.source] = 0;
+    }
+
+    groups[row.source] += row.revenue;
+  });
+
+  const labels = Object.keys(groups);
+  const values = labels.map((src) => groups[src]);
+  const colors = labels.map((src) => COLORS[src]);
+
+  if (pieChartInstance) {
+    pieChartInstance.destroy();
+  }
+
+  pieChartInstance = new Chart(document.getElementById("pieChart"), {
+    type: "doughnut",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          data: values,
+          backgroundColor: colors,
+        },
+      ],
+    },
+    options: {
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: "#94a3b8",
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              return "$" + context.raw.toLocaleString();
+            },
+          },
+        },
+      },
+    },
+  });
 }
-
-
 
 // ============================================================
 // STEP 3C: LINE CHART — Monthly sessions trend per source
@@ -235,12 +361,59 @@ function drawPieChart(rows) {
 // ============================================================
 
 function drawLineChart(rows) {
-
   // TODO
+  const months = [...new Set(rows.map((r) => r.month))];
+  const sources = Object.keys(COLORS);
 
+  const datasets = sources.map((source) => {
+    return {
+      label: source,
+      data: months.map((m) => {
+        const match = rows.find((r) => r.month === m && r.source === source);
+        return match ? match.sessions : 0;
+      }),
+      borderColor: COLORS[source],
+      backgroundColor: COLORS[source] + "33",
+      tension: 0.4,
+      fill: false,
+    };
+  });
+
+  if (lineChartInstance) {
+    lineChartInstance.destroy();
+  }
+
+  lineChartInstance = new Chart(document.getElementById("lineChart"), {
+    type: "line",
+    data: {
+      labels: months,
+      datasets: datasets,
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            color: "#94a3b8",
+          },
+        },
+        x: {
+          ticks: {
+            color: "#94a3b8",
+          },
+        },
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: "#94a3b8",
+          },
+        },
+      },
+    },
+  });
 }
-
-
 
 // ============================================================
 // STEP 4: TOGGLE — Switch bar chart between Sessions / Revenue
@@ -263,12 +436,30 @@ function drawLineChart(rows) {
 // ============================================================
 
 function setupToggle() {
-
   // TODO
+  const btnSessions = document.getElementById("btnSessions");
+  const btnRevenue = document.getElementById("btnRevenue");
 
+  btnSessions.addEventListener("click", function () {
+    currentMetric = "sessions";
+    drawBarChart(allData, currentMetric);
+    document.getElementById("bar-chart-title").textContent =
+      "Sessions by Traffic Source";
+
+    btnSessions.classList.add("active");
+    btnRevenue.classList.remove("active");
+  });
+
+  btnRevenue.addEventListener("click", function () {
+    currentMetric = "revenue";
+    drawBarChart(allData, currentMetric);
+    document.getElementById("bar-chart-title").textContent =
+      "Revenue by Traffic Source ($)";
+
+    btnRevenue.classList.add("active");
+    btnSessions.classList.remove("active");
+  });
 }
-
-
 
 // ============================================================
 // STEP 5: DATA TABLE + SOURCE FILTER
@@ -294,13 +485,40 @@ function setupToggle() {
 // ============================================================
 
 function buildTable(rows) {
-
   // TODO
+  let tableBody = document.getElementById("tableBody");
+  let html = "";
 
+  rows.forEach((row) => {
+    html += `
+      <tr>
+        <td>${row.month}</td>
+        <td><span class="badge badge-${row.source}">${row.source}</span></td>
+        <td>${row.sessions.toLocaleString()}</td>
+        <td>$${row.revenue.toLocaleString()}</td>
+        <td>${row.bounceRate}%</td>
+        <td>${row.conversionRate}%</td>
+        <td>${row.pageviews.toLocaleString()}</td>
+        <td>${row.newVisitors.toLocaleString()}</td>
+      </tr>
+    `;
+  });
+
+  tableBody.innerHTML = html;
 }
 
 function setupFilter() {
-
   // TODO
+  let sourceFilter = document.getElementById("sourceFilter");
 
+  sourceFilter.addEventListener("change", function () {
+    if (sourceFilter.value === "All") {
+      buildTable(allData);
+    } else {
+      let filteredRows = allData.filter(
+        (row) => row.source === sourceFilter.value,
+      );
+      buildTable(filteredRows);
+    }
+  });
 }
